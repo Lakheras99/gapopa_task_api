@@ -1,26 +1,31 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:cached_network_image/cached_network_image.dart';
 
 void main() {
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Gapopa Task gallery',
+      title: 'Gapopa Task Gallery',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: ImageGallery(),
+      home: const ImageGallery(),
     );
   }
 }
 
 class ImageGallery extends StatefulWidget {
+  const ImageGallery({Key? key}) : super(key: key);
+
   @override
   _ImageGalleryState createState() => _ImageGalleryState();
 }
@@ -75,6 +80,7 @@ class _ImageGalleryState extends State<ImageGallery> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+
         title: TextField(
           controller: _searchController,
           decoration: const InputDecoration(
@@ -91,79 +97,90 @@ class _ImageGalleryState extends State<ImageGallery> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : GridView.builder(
-        controller: _scrollController,
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: _isFullscreen ? 1 : _calculateCrossAxisCount(MediaQuery.of(context).size.width),
-          crossAxisSpacing: 4.0,
-          mainAxisSpacing: 4.0,
-        ),
-        itemCount: _images.length,
-        itemBuilder: (BuildContext context, int index) {
-          return GestureDetector(
-            onTap: () {
-              setState(() {
-                _isFullscreen = true;
-                _selectedImageURL = _images[index]['largeImageURL'];
-              });
-            },
-            child: Hero(
-              tag: _images[index]['largeImageURL'],
-              child: _isFullscreen && _selectedImageURL == _images[index]['largeImageURL']
-                  ? GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _isFullscreen = false;
-                    _selectedImageURL = '';
-                  });
-                },
-                child: Image.network(
-                  _selectedImageURL,
-                  fit: BoxFit.cover,
-                ),
-              )
-                  : Card(
-                elevation: 3,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(10.0),
-                        child: Image.network(
-                          _images[index]['webformatURL'],
-                          fit: BoxFit.cover,
+          : RefreshIndicator(
+        onRefresh: () async {
+          setState(() {
+            _images.clear();
+            _page = 1;
+          });
+          await fetchImages();
+        },
+        child: GridView.builder(
+          controller: _scrollController,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: _isFullscreen ? 1 : _calculateCrossAxisCount(MediaQuery.of(context).size.width),
+            crossAxisSpacing: 4.0,
+            mainAxisSpacing: 4.0,
+          ),
+          itemCount: _images.length,
+          itemBuilder: (BuildContext context, int index) {
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  _isFullscreen = true;
+                  _selectedImageURL = _images[index]['largeImageURL'];
+                });
+              },
+              child: Hero(
+                tag: _images[index]['largeImageURL'],
+                child: _isFullscreen && _selectedImageURL == _images[index]['largeImageURL']
+                    ? GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _isFullscreen = false;
+                      _selectedImageURL = '';
+                    });
+                  },
+                  child: Image.network(
+                    _selectedImageURL,
+                    fit: BoxFit.cover,
+                  ),
+                )
+                    : Card(
+                  elevation: 3,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10.0),
+                          child: CachedNetworkImage(
+                            imageUrl: _images[index]['webformatURL'],
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Center(child: CircularProgressIndicator()),
+                            errorWidget: (context, url, error) => Icon(Icons.error),
+                          ),
                         ),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          const Icon(Icons.favorite, color: Colors.red),
-                          Text(
-                            "${_images[index]['likes']}",
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(width: 20.0),
-                          const Icon(Icons.remove_red_eye, color: Colors.blue),
-                          Text(
-                            "${_images[index]['views']}",
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ],
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            const Icon(Icons.favorite, color: Colors.red),
+                            Text(
+                              "${_images[index]['likes']}",
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(width: 20.0),
+                            const Icon(Icons.remove_red_eye, color: Colors.blue),
+                            Text(
+                              "${_images[index]['views']}",
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
       floatingActionButton: _isFullscreen
           ? FloatingActionButton(
